@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -146,13 +147,26 @@ func serverdetailHandler(db *sql.DB) http.HandlerFunc {
 			http.Error(w, fmt.Sprintf("error parsing url %v", err), 500)
 		}
 
-		var result []string
+		var result string
 
 		switch r.Method {
 		case "GET":
-			fmt.Println("start get")
-			uuid := r.FormValue("uuid")
-			fmt.Println(uuid)
+			p := strings.Split(r.URL.Path, "/api/server/")
+			UUID := p[1]
+
+			var uuid string
+			var sn string
+			var ip string
+			var cpu string
+			var memory string
+			var disktype string
+			var disksize string
+			var nic string
+			var manufacturer string
+			var model string
+			var expiredate time.Time
+			var idc string
+			var comment string
 
 			var stmt *sql.Stmt
 			stmt, err = db.Prepare("SELECT * FROM server WHERE uuid = ?")
@@ -160,47 +174,28 @@ func serverdetailHandler(db *sql.DB) http.HandlerFunc {
 				log.Fatal(err)
 			}
 
-			var rows *sql.Rows
-			rows, err = stmt.Query(uuid)
-			if err != nil {
+			err = stmt.QueryRow(UUID).Scan(
+				&uuid,
+				&sn,
+				&ip,
+				&cpu,
+				&memory,
+				&disktype,
+				&disksize,
+				&nic,
+				&manufacturer,
+				&model,
+				&expiredate,
+				&idc,
+				&comment,
+			)
+			switch {
+			case err == sql.ErrNoRows:
+				result = fmt.Sprintf("NO SUCH UUID: %v.", UUID)
+				log.Printf(result)
+			case err != nil:
 				log.Fatal(err)
-			}
-			defer rows.Close()
-
-			for rows.Next() {
-				var uuid string
-				var sn string
-				var ip string
-				var cpu string
-				var memory string
-				var disktype string
-				var disksize string
-				var nic string
-				var manufacturer string
-				var model string
-				var expiredate time.Time
-				var idc string
-				var comment string
-
-				err = rows.Scan(
-					&uuid,
-					&sn,
-					&ip,
-					&cpu,
-					&memory,
-					&disktype,
-					&disksize,
-					&nic,
-					&manufacturer,
-					&model,
-					&expiredate,
-					&idc,
-					&comment,
-				)
-				if err != nil {
-					log.Fatal(err)
-				}
-
+			default:
 				ser := server{
 					uuid,
 					sn,
@@ -223,46 +218,54 @@ func serverdetailHandler(db *sql.DB) http.HandlerFunc {
 					fmt.Println(err)
 					return
 				}
-				result = append(result, string(serJSON))
+				result = string(serJSON)
 			}
 
 		case "PUT":
-			fmt.Println("put start")
-			uuid := r.PostFormValue("uuid")
-			sn := r.PostFormValue("sn")
-			ip := r.PostFormValue("ip")
-			cpu := r.PostFormValue("cpu")
-			memory := r.PostFormValue("memory")
-			disktype := r.PostFormValue("disktype")
-			disksize := r.PostFormValue("disksize")
-			nic := r.PostFormValue("nic")
-			manufacturer := r.PostFormValue("manufacturer")
-			model := r.PostFormValue("model")
-			expiredate := r.PostFormValue("expiredate")
-			idc := r.PostFormValue("idc")
-			comment := r.PostFormValue("comment")
-			fmt.Println(sn, ip, cpu, memory, disktype, disksize, nic, manufacturer, model, expiredate, idc, comment)
+			// p := strings.Split(r.URL.Path, "/api/server/")
+			// UUID := p[1]
 
-			var stmt *sql.Stmt
-			stmt, err = db.Prepare("UPDATE server SET sn=?, ip=?, cpu=?, memory=?, disktype=?, disksize=?, nic=?, manufacturer=?, model=?, expiredate=?, idc=?, comment=? WHERE id=?")
-			if err != nil {
-				log.Fatal(err)
+			// uuid := r.PostFormValue("uuid")
+			// sn := r.PostFormValue("sn")
+			// ip := r.PostFormValue("ip")
+			// cpu := r.PostFormValue("cpu")
+			// memory := r.PostFormValue("memory")
+			// disktype := r.PostFormValue("disktype")
+			// disksize := r.PostFormValue("disksize")
+			// nic := r.PostFormValue("nic")
+			// manufacturer := r.PostFormValue("manufacturer")
+			// model := r.PostFormValue("model")
+			// expiredate := r.PostFormValue("expiredate")
+			// idc := r.PostFormValue("idc")
+			// comment := r.PostFormValue("comment")
+
+			// r_form := make(map[string]string)
+			fmt.Println(r.PostForm)
+			for key, value := range r.PostForm {
+				fmt.Println("==============")
+				fmt.Println(key, value)
 			}
 
-			var res sql.Result
-			res, err = stmt.Exec(sn, ip, cpu, memory, disktype, disksize, nic, manufacturer, model, expiredate, idc, comment, uuid)
-			if err != nil {
-				log.Fatal(err)
-			}
+			// var stmt *sql.Stmt
+			// stmt, err = db.Prepare("UPDATE server SET sn=?, ip=?, cpu=?, memory=?, disktype=?, disksize=?, nic=?, manufacturer=?, model=?, expiredate=?, idc=?, comment=? WHERE uuid=?")
+			// if err != nil {
+			// 	log.Fatal(err)
+			// }
+			//
+			// var res sql.Result
+			// res, err = stmt.Exec(sn, ip, cpu, memory, disktype, disksize, nic, manufacturer, model, expiredate, idc, comment, UUID)
+			// if err != nil {
+			// 	log.Fatal(err)
+			// }
 
-			if res != nil {
-				result = append(result, "success!")
-			}
+			// if res != nil {
+			result = "UPDATE success!"
+			// }
 
 		// case "DELETE":
 
 		default:
-			result = []string{fmt.Sprintf("Don't support Method %v.", r.Method)}
+			result = fmt.Sprintf("Don't support Method %v.", r.Method)
 		}
 
 		// write result(JSON) to ResponseWriter

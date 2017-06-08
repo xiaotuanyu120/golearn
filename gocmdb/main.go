@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -20,11 +19,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	} else {
-		fmt.Println("DB connected")
+		log.Print("database connected")
 	}
 
-	http.HandleFunc("/api/server", serverlistHandler(db))
-	http.HandleFunc("/api/server/{uuid}", serverdetailHandler(db))
-	log.Fatal(http.ListenAndServe(":8080", nil))
-
+	mux := http.NewServeMux()
+	mux.Handle("/api/server", serverlistHandler(db))
+	mux.Handle("/api/server/", serverdetailHandler(db))
+	log.Print("Restful API mux")
+	log.Fatal(http.ListenAndServe(":8080", mux))
 }

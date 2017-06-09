@@ -6,139 +6,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
-	"time"
+
+	"github.com/gorilla/mux"
 )
 
-func serverlistHandler(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-type", "application/json")
-
-		// err := r.ParseForm()
-		// if err != nil {
-		// 	http.Error(w, fmt.Sprintf("error parsing url %v", err), 500)
-		// }
-
-		var result []string
-
-		switch r.Method {
-		case "GET":
-			// var stmt *sql.Stmt
-			stmt, err := db.Prepare("SELECT * FROM server")
-			if err != nil {
-				log.Fatal(err)
-			}
-			// defer stmt.Close()
-
-			// var rows *sql.Rows
-			rows, err := stmt.Query()
-			if err != nil {
-				log.Fatal(err)
-			}
-			defer rows.Close()
-
-			for rows.Next() {
-				var uuid string
-				var sn string
-				var ip string
-				var cpu string
-				var memory string
-				var disktype string
-				var disksize string
-				var nic string
-				var manufacturer string
-				var model string
-				var expiredate time.Time
-				var idc string
-				var comment string
-
-				err = rows.Scan(
-					&uuid,
-					&sn,
-					&ip,
-					&cpu,
-					&memory,
-					&disktype,
-					&disksize,
-					&nic,
-					&manufacturer,
-					&model,
-					&expiredate,
-					&idc,
-					&comment,
-				)
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				ser := server{
-					uuid,
-					sn,
-					ip,
-					cpu,
-					memory,
-					disktype,
-					disksize,
-					nic,
-					manufacturer,
-					model,
-					expiredate,
-					idc,
-					comment,
-				}
-
-				// var serJSON []byte
-				serJSON, err := json.Marshal(ser)
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-				result = append(result, string(serJSON))
-			}
-
-		case "POST":
-			uuid := r.PostFormValue("uuid")
-			sn := r.PostFormValue("sn")
-			ip := r.PostFormValue("ip")
-			cpu := r.PostFormValue("cpu")
-			memory := r.PostFormValue("memory")
-			disktype := r.PostFormValue("disktype")
-			disksize := r.PostFormValue("disksize")
-			nic := r.PostFormValue("nic")
-			manufacturer := r.PostFormValue("manufacturer")
-			model := r.PostFormValue("model")
-			expiredate := r.PostFormValue("expiredate")
-			idc := r.PostFormValue("idc")
-			comment := r.PostFormValue("comment")
-
-			stmt, err := db.Prepare("INSERT INTO server VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			res, err := stmt.Exec(uuid, sn, ip, cpu, memory, disktype, disksize, nic, manufacturer, model, expiredate, idc, comment)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			if res != nil {
-				result = append(result, "success!")
-			}
-
-		default:
-			result = []string{fmt.Sprintf("Don't support Method %v, only GET/POST.", r.Method)}
-		}
-
-		// write result(JSON) to ResponseWriter
-		err := json.NewEncoder(w).Encode(result)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-	}
-}
-
-func serverdetailHandler(db *sql.DB) http.HandlerFunc {
+func serverListHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-type", "application/json")
 
@@ -147,12 +19,145 @@ func serverdetailHandler(db *sql.DB) http.HandlerFunc {
 			http.Error(w, fmt.Sprintf("error parsing url %v", err), 500)
 		}
 
-		var result string
+		var result []string
+
+		var stmt *sql.Stmt
+		stmt, err = db.Prepare("SELECT * FROM server")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer stmt.Close()
+
+		var rows *sql.Rows
+		rows, err = stmt.Query()
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var uuid string
+			var sn string
+			var ip string
+			var cpu string
+			var memory string
+			var disktype string
+			var disksize string
+			var nic string
+			var manufacturer string
+			var model string
+			var expiredate string
+			var idc string
+			var comment string
+
+			err = rows.Scan(
+				&uuid,
+				&sn,
+				&ip,
+				&cpu,
+				&memory,
+				&disktype,
+				&disksize,
+				&nic,
+				&manufacturer,
+				&model,
+				&expiredate,
+				&idc,
+				&comment,
+			)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			ser := server{
+				uuid,
+				sn,
+				ip,
+				cpu,
+				memory,
+				disktype,
+				disksize,
+				nic,
+				manufacturer,
+				model,
+				expiredate,
+				idc,
+				comment,
+			}
+
+			var serJSON []byte
+			serJSON, err = json.Marshal(ser)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			result = append(result, string(serJSON))
+		}
+
+		// write result(JSON) to ResponseWriter
+		err = json.NewEncoder(w).Encode(result)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+}
+
+func serverCreateHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-type", "application/json")
+
+		decoder := json.NewDecoder(r.Body)
+		var ser server
+		err := decoder.Decode(&ser)
+		if err != nil {
+			panic(err)
+		}
+		defer r.Body.Close()
+
+		uuid := ser.UUID
+		sn := ser.SN
+		ip := ser.IP
+		cpu := ser.CPU
+		memory := ser.Memory
+		disktype := ser.Disktype
+		disksize := ser.Disksize
+		nic := ser.NIC
+		manufacturer := ser.Manufacturer
+		model := ser.Model
+		expiredate := ser.Expiredate
+		idc := ser.IDC
+		comment := ser.Comment
+
+		var stmt *sql.Stmt
+		stmt, err = db.Prepare("INSERT INTO server VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		_, err = stmt.Exec(uuid, sn, ip, cpu, memory, disktype, disksize, nic, manufacturer, model, expiredate, idc, comment)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// write result(JSON) to ResponseWriter
+		err = json.NewEncoder(w).Encode(ser)
+		if err != nil {
+			log.Println(ser)
+			return
+		}
+	}
+}
+
+func serverDetailHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-type", "application/json")
+
+		var result []byte
 
 		switch r.Method {
 		case "GET":
-			p := strings.Split(r.URL.Path, "/api/server/")
-			UUID := p[1]
+			UUID := mux.Vars(r)["uuid"]
 
 			var uuid string
 			var sn string
@@ -164,12 +169,11 @@ func serverdetailHandler(db *sql.DB) http.HandlerFunc {
 			var nic string
 			var manufacturer string
 			var model string
-			var expiredate time.Time
+			var expiredate string
 			var idc string
 			var comment string
 
-			var stmt *sql.Stmt
-			stmt, err = db.Prepare("SELECT * FROM server WHERE uuid = ?")
+			stmt, err := db.Prepare("SELECT * FROM server WHERE uuid = ?")
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -191,8 +195,9 @@ func serverdetailHandler(db *sql.DB) http.HandlerFunc {
 			)
 			switch {
 			case err == sql.ErrNoRows:
-				result = fmt.Sprintf("NO SUCH UUID: %v.", UUID)
-				log.Printf(result)
+				// result = fmt.Sprintf("NO SUCH UUID: %v.", UUID)
+				result = []byte{}
+				// log.Printf(result)
 			case err != nil:
 				log.Fatal(err)
 			default:
@@ -212,67 +217,67 @@ func serverdetailHandler(db *sql.DB) http.HandlerFunc {
 					comment,
 				}
 
-				var serJSON []byte
-				serJSON, err = json.Marshal(ser)
+				result, err = json.Marshal(ser)
 				if err != nil {
 					fmt.Println(err)
 					return
 				}
-				result = string(serJSON)
 			}
 
 		case "PUT":
-			// p := strings.Split(r.URL.Path, "/api/server/")
-			// UUID := p[1]
+			UUID := mux.Vars(r)["uuid"]
 
-			// uuid := r.PostFormValue("uuid")
-			// sn := r.PostFormValue("sn")
-			// ip := r.PostFormValue("ip")
-			// cpu := r.PostFormValue("cpu")
-			// memory := r.PostFormValue("memory")
-			// disktype := r.PostFormValue("disktype")
-			// disksize := r.PostFormValue("disksize")
-			// nic := r.PostFormValue("nic")
-			// manufacturer := r.PostFormValue("manufacturer")
-			// model := r.PostFormValue("model")
-			// expiredate := r.PostFormValue("expiredate")
-			// idc := r.PostFormValue("idc")
-			// comment := r.PostFormValue("comment")
+			decoder := json.NewDecoder(r.Body)
+			var ser server
+			err := decoder.Decode(&ser)
+			if err != nil {
+				panic(err)
+			}
+			defer r.Body.Close()
 
-			// r_form := make(map[string]string)
-			fmt.Println(r.PostForm)
-			for key, value := range r.PostForm {
-				fmt.Println("==============")
-				fmt.Println(key, value)
+			//test
+			//test end
+
+			sn := ser.SN
+			ip := ser.IP
+			cpu := ser.CPU
+			memory := ser.Memory
+			disktype := ser.Disktype
+			disksize := ser.Disksize
+			nic := ser.NIC
+			manufacturer := ser.Manufacturer
+			model := ser.Model
+			expiredate := ser.Expiredate
+			idc := ser.IDC
+			comment := ser.Comment
+
+			var stmt *sql.Stmt
+			stmt, err = db.Prepare("UPDATE server SET sn=?, ip=?, cpu=?, memory=?, disktype=?, disksize=?, nic=?, manufacturer=?, model=?, expiredate=?, idc=?, comment=? WHERE uuid=?")
+			if err != nil {
+				log.Fatal(err)
 			}
 
-			// var stmt *sql.Stmt
-			// stmt, err = db.Prepare("UPDATE server SET sn=?, ip=?, cpu=?, memory=?, disktype=?, disksize=?, nic=?, manufacturer=?, model=?, expiredate=?, idc=?, comment=? WHERE uuid=?")
-			// if err != nil {
-			// 	log.Fatal(err)
-			// }
-			//
-			// var res sql.Result
-			// res, err = stmt.Exec(sn, ip, cpu, memory, disktype, disksize, nic, manufacturer, model, expiredate, idc, comment, UUID)
-			// if err != nil {
-			// 	log.Fatal(err)
-			// }
+			res, err := stmt.Exec(sn, ip, cpu, memory, disktype, disksize, nic, manufacturer, model, expiredate, idc, comment, UUID)
+			if err != nil {
+				log.Fatal(err)
+			}
 
-			// if res != nil {
-			result = "UPDATE success!"
-			// }
+			if res != nil {
+				result, err = json.Marshal(ser)
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+			}
 
-		// case "DELETE":
+			// case "DELETE":
 
-		default:
-			result = fmt.Sprintf("Don't support Method %v.", r.Method)
+			// default:
+			// 	result = fmt.Sprintf("Don't support Method %v.", r.Method)
 		}
 
 		// write result(JSON) to ResponseWriter
-		err = json.NewEncoder(w).Encode(result)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
+		w.Write(result)
+		return
 	}
 }

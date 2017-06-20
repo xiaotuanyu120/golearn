@@ -23,7 +23,7 @@ https://gist.github.com/andreagrandi/97263aaf7f9344d3ffe6 - 解决获取json pos
 http://blog.csdn.net/wangjun5159/article/details/47781443 - 解释了为什么post data获取到是空值的问题，类型选错
 
 POST example `http://192.168.33.10:8080/api/server`
-```
+``` json
 {  
    "uuid":"395eed99-9e66-469f-af2b-b2da116e",
    "sn":"server-170530001",

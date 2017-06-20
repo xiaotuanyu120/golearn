@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"reflect"
 
 	"github.com/gorilla/mux"
 )
@@ -227,6 +228,7 @@ func serverDetailHandler(db *sql.DB) http.HandlerFunc {
 		case "PUT":
 			UUID := mux.Vars(r)["uuid"]
 
+			// decode json request to type server
 			decoder := json.NewDecoder(r.Body)
 			var ser server
 			err := decoder.Decode(&ser)
@@ -235,33 +237,49 @@ func serverDetailHandler(db *sql.DB) http.HandlerFunc {
 			}
 			defer r.Body.Close()
 
-			//test
-			//test end
+			// sqlS is a map to store field name:field value
+			s := reflect.ValueOf(ser)
+			typeOfS := s.Type()
+			sqlS := make(map[string]interface{})
+			for i := 0; i < s.NumField(); i++ {
+				f := s.Field(i)
+				if f.Interface() != "" {
+					fieldN := typeOfS.Field(i).Name
+					field, ok := typeOfS.FieldByName(fieldN)
+					if !ok {
+						panic("Field not found")
+					}
+					sqlT, ok := field.Tag.Lookup("sql")
+					if !ok {
+						panic("pattern not found")
+					}
+					sqlS[sqlT] = f.Interface()
+				}
+			}
 
-			sn := ser.SN
-			ip := ser.IP
-			cpu := ser.CPU
-			memory := ser.Memory
-			disktype := ser.Disktype
-			disksize := ser.Disksize
-			nic := ser.NIC
-			manufacturer := ser.Manufacturer
-			model := ser.Model
-			expiredate := ser.Expiredate
-			idc := ser.IDC
-			comment := ser.Comment
+			// sqlP is the sql prepare statement
+			sqlItem := ""
+			sep := ""
+			for sqlI, sqlV := range sqlS {
+				sqlI += fmt.Sprintf("='%v'", sqlV.(string))
+				sqlItem += sep + sqlI
+				sep = ", "
+			}
+			sqlP := fmt.Sprintf("UPDATE server SET %v WHERE uuid='%v'", sqlItem, UUID)
 
+			// execute sql statement
 			var stmt *sql.Stmt
-			stmt, err = db.Prepare("UPDATE server SET sn=?, ip=?, cpu=?, memory=?, disktype=?, disksize=?, nic=?, manufacturer=?, model=?, expiredate=?, idc=?, comment=? WHERE uuid=?")
+			stmt, err = db.Prepare(sqlP)
 			if err != nil {
 				log.Fatal(err)
 			}
 
-			res, err := stmt.Exec(sn, ip, cpu, memory, disktype, disksize, nic, manufacturer, model, expiredate, idc, comment, UUID)
+			res, err := stmt.Exec()
 			if err != nil {
 				log.Fatal(err)
 			}
 
+			// pass json data to result if success
 			if res != nil {
 				result, err = json.Marshal(ser)
 				if err != nil {
@@ -270,10 +288,33 @@ func serverDetailHandler(db *sql.DB) http.HandlerFunc {
 				}
 			}
 
-			// case "DELETE":
+		case "DELETE":
+			UUID := mux.Vars(r)["uuid"]
+			sqlP := fmt.Sprintf("DELETE FROM server WHERE uuid='%v'", UUID)
 
-			// default:
-			// 	result = fmt.Sprintf("Don't support Method %v.", r.Method)
+			// execute sql statement
+			stmt, err := db.Prepare(sqlP)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			var res sql.Result
+			res, err = stmt.Exec()
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			// pass json data to result if success
+			if res != nil {
+				result = []byte(fmt.Sprintf("DELETE '%v' SUCCESS!", UUID))
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+			}
+
+		default:
+			result = []byte(fmt.Sprintf("Don't support method: %v", r.Method))
 		}
 
 		// write result(JSON) to ResponseWriter

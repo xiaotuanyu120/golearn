@@ -10,19 +10,19 @@ import (
 )
 
 type server struct {
-	UUID         string `json:"uuid,omitempty"`
-	SN           string `json:"sn,omitempty"`
-	IP           string `json:"ip,omitempty"`
-	CPU          string `json:"cpu,omitempty"`
-	Memory       string `json:"memory,omitempty"`
-	Disktype     string `json:"disktype,omitempty"`
-	Disksize     string `json:"disksize,omitempty"`
-	NIC          string `json:"nic,omitempty"`
-	Manufacturer string `json:"manufacturer,omitempty"`
-	Model        string `json:"model,omitempty"`
-	Expiredate   string `json:"expiredate,omitempty"`
-	IDC          string `json:"idc,omitempty"`
-	Comment      string `json:"comment,omitempty"`
+	UUID         string `json:"uuid,omitempty" sql:"uuid"`
+	SN           string `json:"sn,omitempty" sql:"sn"`
+	IP           string `json:"ip,omitempty" sql:"ip"`
+	CPU          string `json:"cpu,omitempty" sql:"cpu"`
+	Memory       string `json:"memory,omitempty" sql:"memory"`
+	Disktype     string `json:"disktype,omitempty" sql:"disktype"`
+	Disksize     string `json:"disksize,omitempty" sql:"disksize"`
+	NIC          string `json:"nic,omitempty" sql:"nic"`
+	Manufacturer string `json:"manufacturer,omitempty" sql:"manufacturer"`
+	Model        string `json:"model,omitempty" sql:"model"`
+	Expiredate   string `json:"expiredate,omitempty" sql:"expiredate"`
+	IDC          string `json:"idc,omitempty" sql:"idc"`
+	Comment      string `json:"comment,omitempty" sql:"comment"`
 }
 
 func main() {
@@ -42,7 +42,7 @@ func main() {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/api/server", serverListHandler(db)).Methods("GET")
 	router.HandleFunc("/api/server", serverCreateHandler(db)).Methods("POST")
-	router.HandleFunc("/api/server/{uuid}", serverDetailHandler(db)).Methods("GET", "PUT", "DELETE")
+	router.HandleFunc("/api/server/{uuid}", serverDetailHandler(db)).Methods("GET", "PUT", "DELETE", "POST")
 	log.Print("Restful API mux: 0.0.0.0:8080")
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
